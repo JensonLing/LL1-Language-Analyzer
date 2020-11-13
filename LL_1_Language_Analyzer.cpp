@@ -3,6 +3,7 @@
 # include <queue>
 # include <string>
 # include <fstream>
+# include <vector>
 
 # define PRODUCTION_PATH "./doc/production.txt"
 //# define TOKEN_TABLE_PATH "./doc/tokens.txt"
@@ -20,6 +21,8 @@ map<string, int> T_Str2Num;
 map<int, string> N_Num2Str; //从终结符编号到终结符的映射
 map<string, int> N_Str2Num;
 map<int,bool> N_empty;
+map<int, vector<int>> First;
+map<int, vector<int>> Follow;
 
 typedef struct Symbol
 {
@@ -173,6 +176,9 @@ void Load_Production()
         line++;
     }//end of while
     f.close();
+
+    T_Num2Str[0] = "ε";
+    T_Str2Num["ε"] = 0;
 }
 
 void Print_Production(int n)
@@ -216,14 +222,104 @@ void Print_Statistics()
     cout<<endl<<endl;
 }
 
+bool T_Exists(int flag, int n, int key)//查找某一元素是否出现在First或Follow集中，flag为0则在First集中查找
+{
+    vector<int> temp;
+    if(flag == 0)
+        temp.assign(First[n].begin(), First[n].end());
+    else
+        temp.assign(Follow[n].begin(), Follow[n].end());
+    int size = temp.size();
+    //cout<<"size:"<<size<<endl;
+    for(int i= 0; i < size; i++)
+    {
+        if(temp[i] == key)
+            return true;
+    }
+    return false;
+}
+
+void Print_First_And_Follow()
+{
+    for(int i = 1; i <= N_num; i++)
+    {
+        cout<< N_Num2Str[i]<<": ";
+        vector<int> temp;
+        temp.assign(First[i].begin(), First[i].end());
+        for(int j = 0; j < temp.size(); j++)
+        {
+            cout<<T_Num2Str[temp[j]]<<" ";
+        }
+        cout<<endl;
+    }
+}
+
+bool Calc_First(int i)//返回empty_flag, i是产生式序号
+{
+    bool empty_flag = 1;
+    int Cur_N = N_Str2Num[Productions[i].N_Left];
+    S_Pointer Cur_Node = Productions[i].first_symbol;
+    while(empty_flag && Cur_Node)
+    {
+        if(Cur_Node->type == 0)
+        {
+            if(!T_Exists(0, Cur_N, Cur_Node->no))
+            {
+                First[Cur_N].push_back(Cur_Node->no);
+            }
+            empty_flag = 0;
+        }
+        else
+        {
+            empty_flag = 0;
+            for(int j = 0; j < P_num; j++)
+            {
+                if(N_Str2Num[Productions[j].N_Left] == Cur_Node->no)
+                {
+                    int temp_flag = Calc_First(j);
+                    empty_flag |= temp_flag;
+                    //把N的所有非空First元素加入到当前元素First集下
+                    vector<int> temp;
+                    temp.assign(First[Cur_Node->no].begin(), First[Cur_Node->no].end());
+                    for(int k = 0; k < temp.size(); k++)
+                    {
+                        if(!T_Exists(0, Cur_N, temp[k]) && temp[k] != 0)
+                        {
+                            First[Cur_N].push_back(temp[k]);
+                        }
+                    }
+                }
+            }
+        }
+        Cur_Node = Cur_Node->next;
+    }
+    if(empty_flag)
+    {
+        if(!T_Exists(0, Cur_N, 0))
+        {
+            First[Cur_N].push_back(0);
+        }
+    }
+    return empty_flag;
+}
+
 int main()
 {
+    
     Load_Production();
     cout<<"Load OK"<<endl;
     //Print_Production(0);
     Print_Statistics();
-    cout<< N_empty[N_Str2Num["A"]];
+    //cout<< N_empty[N_Str2Num["A"]];
+    for(int i = 0; i < P_num; i++)
+        Calc_First(i);
+    Print_First_And_Follow();
 
+   /*
+   First[0].push_back(4);
+   First[0].push_back(6);
+   cout<<T_Exists(0, 0, 5);
+   */
 
 
 }
