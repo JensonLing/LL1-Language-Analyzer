@@ -16,13 +16,16 @@ using namespace std;
 int N_num = 0;  //非终结符数量
 int T_num = 0;  //终结符数量
 int P_num = 0; //产生式数量
+int C_num = 0; //具有相同Follow集的Cluster的数量
 map<int, string> T_Num2Str; //从非终结符编号到非终结符的映射
 map<string, int> T_Str2Num;
 map<int, string> N_Num2Str; //从终结符编号到终结符的映射
 map<string, int> N_Str2Num;
 map<int,bool> N_empty;
 map<int, vector<int>> First;
-map<int, vector<int>> Follow;
+map<int, vector<int>> Follow;//从N到Follow集的映射
+map<int, vector<int>> Follow_Cluster;//Follow集中有相等关系的非终结符放在同一个Cluster里
+map<int, int> Get_Cluster_Num;//取得与该非终结符有相同Follow集的其他符号所在的Cluster号，若无则返回0
 
 typedef struct Symbol
 {
@@ -241,11 +244,25 @@ bool T_Exists(int flag, int n, int key)//查找某一元素是否出现在First�
 
 void Print_First_And_Follow()
 {
+    cout<<"[First]"<<endl;
     for(int i = 1; i <= N_num; i++)
     {
         cout<< N_Num2Str[i]<<": ";
         vector<int> temp;
         temp.assign(First[i].begin(), First[i].end());
+        for(int j = 0; j < temp.size(); j++)
+        {
+            cout<<T_Num2Str[temp[j]]<<" ";
+        }
+        cout<<endl;
+    }
+
+    cout<<"[Follow]"<<endl;
+    for(int i = 1; i <= N_num; i++)
+    {
+        cout<< N_Num2Str[i]<<": ";
+        vector<int> temp;
+        temp.assign(Follow[i].begin(), Follow[i].end());
         for(int j = 0; j < temp.size(); j++)
         {
             cout<<T_Num2Str[temp[j]]<<" ";
@@ -278,7 +295,7 @@ bool Calc_First(int i)//返回empty_flag, i是产生式序号
                 {
                     int temp_flag = Calc_First(j);
                     empty_flag |= temp_flag;
-                    //把N的所有非空First元素加入到当前元素First集下
+                    //把产生式右侧N的所有非空First元素加入到当前元素First集下
                     vector<int> temp;
                     temp.assign(First[Cur_Node->no].begin(), First[Cur_Node->no].end());
                     for(int k = 0; k < temp.size(); k++)
@@ -303,6 +320,129 @@ bool Calc_First(int i)//返回empty_flag, i是产生式序号
     return empty_flag;
 }
 
+bool N_exists_in_Cluster(int N, int Cluster)
+{
+    //cout<<"------------------"<<endl;
+    //bool flag = false;
+    vector<int> Cur_Vec = Follow_Cluster[Cluster];
+    for(int i = 0; i < Cur_Vec.size(); i++)
+    {
+        //cout<<"Current_Num:"<<Cur_Vec[i]<<endl;
+        if(Cur_Vec[i] == N)
+            return true; 
+    }
+    return false;
+}
+
+void Generate_Cluster()
+{
+    for(int i = 0; i < P_num; i++)//先检查所有具有相同Follow集的非终结符,把它们放到同一个Cluster里
+    {
+        S_Pointer Cur_Node = Productions[i].first_symbol;
+        int Cur_left = N_Str2Num[Productions[i].N_Left];
+        while(Cur_Node)
+        {
+            S_Pointer temp_node = Cur_Node->next;
+            if(Cur_Node->type)
+            {
+                bool ept_flag = true;//检查该非终结符右侧是否全为空或可推导出空
+                while(temp_node)
+                {
+                    if(temp_node->type == 0 || N_empty[temp_node->no] == 0)
+                        ept_flag = false;
+                    temp_node = temp_node->next;
+                }
+
+                if(ept_flag)//把该非终结符和产生式左侧的非终结符加到一个Cluster中
+                {
+                    if(Get_Cluster_Num[Cur_left] == 0)
+                    {
+                        C_num ++;
+                        Get_Cluster_Num[Cur_left] = C_num;
+                        Follow_Cluster[C_num].push_back(Cur_left);
+                    }
+                    int Cur_Cluster = Get_Cluster_Num[Cur_left];
+                    if(!N_exists_in_Cluster(Cur_Node->no, Cur_Cluster))
+                    {
+                        Follow_Cluster[Cur_Cluster].push_back(Cur_Node->no);
+                        Get_Cluster_Num[Cur_Node->no] = Cur_Cluster;
+                    }
+                }
+            }
+
+            Cur_Node = Cur_Node->next;
+        }
+    }
+}
+
+void Cluster_All_Add(int N, int key)
+{
+    if(Get_Cluster_Num[N])
+    {
+        vector<int> Cur_Cluster = Follow_Cluster[Get_Cluster_Num[N]];
+        for(int i = 0; i < Cur_Cluster.size(); i++)
+        {
+            int Cur_N = Cur_Cluster[i];
+            if(!T_Exists(1, Cur_N, key))
+                Follow[Cur_N].push_back(key);
+        }
+    }
+    else
+    {
+        if(!T_Exists(1, N, key))
+            Follow[N].push_back(key);
+    }
+}
+
+void Calc_Follow()
+{
+    T_Num2Str[-1] = "$";
+    T_Str2Num["$"] = -1;
+    Cluster_All_Add(N_Str2Num[Productions[0].N_Left], -1);
+
+    for(int i = 0; i < P_num; i++)
+    {
+        int Cur_Left = N_Str2Num[Productions[i].N_Left];
+        S_Pointer Cur_Node = Productions[i].first_symbol;
+
+        while(Cur_Node)
+        {
+            if(Cur_Node->type)
+            {
+                //int Cur_Cluster = Get_Cluster_Num[Cur_Node->no];
+                bool temp_flag = true;  //用以判断上个非终结符是否可推空
+                S_Pointer temp_node = Cur_Node->next;
+                while(temp_node && temp_flag)
+                {
+                    if(temp_node->type)
+                    {
+                        int temp = temp_node->no;
+                        vector<int> temp_first = First[temp];
+                        //把右侧所有符合条件的非终结符的First集中除空外的所有内容加到当前的follow集中
+                        for(int i = 0; i < temp_first.size(); i++)
+                        {
+                            if(!T_Exists(1, Cur_Node->no, temp_first[i]) && temp_first[i] != 0)
+                            {
+                                Cluster_All_Add(Cur_Node->no, temp_first[i]);
+                            }
+                        }
+
+                        temp_flag = N_empty[temp];
+                    }
+                    else
+                    {
+                        Cluster_All_Add(Cur_Node->no, temp_node->no);
+                        temp_flag = false;
+                    }
+                    temp_node = temp_node->next;
+                }//end of temp_node
+            }//end of if
+
+            Cur_Node = Cur_Node->next;
+        }//end of Cur_Node
+    }//end of for
+}
+
 int main()
 {
     
@@ -313,8 +453,22 @@ int main()
     //cout<< N_empty[N_Str2Num["A"]];
     for(int i = 0; i < P_num; i++)
         Calc_First(i);
+    Generate_Cluster();
+    Calc_Follow();
     Print_First_And_Follow();
 
+    cout<<"Cluster_Num:"<<C_num<<endl;
+    for(int i = 1; i <= C_num; i++)
+    {
+        vector<int> Cur_Vec = Follow_Cluster[i];
+        cout<<"Cluster "<<i<<": ";
+        for(int j = 0; j < Cur_Vec.size(); j++)
+        {
+            cout<<Cur_Vec[j]<<" ";
+        }
+        cout<<endl;
+    }
+    cout<<endl;
    /*
    First[0].push_back(4);
    First[0].push_back(6);
