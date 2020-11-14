@@ -1,4 +1,5 @@
 # include <iostream>
+# include <iomanip>
 # include <map>
 # include <queue>
 # include <string>
@@ -10,6 +11,7 @@
 //# define TOKEN_MAP_PATH "./doc/token_map.txt"
 
 //# define EOF 0
+# define MAX_TABLE_SIZE 100
 
 using namespace std;
 
@@ -26,6 +28,7 @@ map<int, vector<int>> First;
 map<int, vector<int>> Follow;//从N到Follow集的映射
 map<int, vector<int>> Follow_Cluster;//Follow集中有相等关系的非终结符放在同一个Cluster里
 //map<int, int> Get_Cluster_Num;//取得与该非终结符有相同Follow集的其他符号所在的Cluster号，若无则返回0
+int Analysis_Table[MAX_TABLE_SIZE][MAX_TABLE_SIZE];
 
 typedef struct Symbol
 {
@@ -186,21 +189,33 @@ void Load_Production()
 
 void Print_Production(int n)
 {
-    cout << Productions[n].N_Left << "->";
+    string output = Productions[n].N_Left + "->";
     S_Pointer Cur_Node = Productions[n].first_symbol;
     //cout<<"first_symbol type is:"<<Cur_Node->type<<endl;
+
+    if(n < 0)
+    {
+        cout<<setw(11)<<setfill(' ')<<left<<"";
+        return;
+    }
+
     while(Cur_Node != NULL)
     {
         if(Cur_Node->type == 0)
-            cout<< T_Num2Str[Cur_Node->no];
+            output += T_Num2Str[Cur_Node->no];
         else
         {
-            cout<< N_Num2Str[Cur_Node->no];
+            output += N_Num2Str[Cur_Node->no];
         }
-        cout<<"("<<Cur_Node->type<<")";
+        //output = output + "(" + to_string(Cur_Node->type) + ")";
         Cur_Node = Cur_Node->next;
     }
-    cout<<endl;
+    
+    if(Productions[n].first_symbol == NULL)
+        output = output + "ε";
+    cout<<setw(11)<<setfill(' ')<<left<<output;
+    if(Productions[n].first_symbol == NULL)
+        cout<<" ";
 }
 
 void Print_Statistics()
@@ -221,6 +236,7 @@ void Print_Statistics()
     for(int i = 0; i < P_num; i++)
     {
         Print_Production(i);
+        cout<<endl;
     }
     cout<<endl<<endl;
 }
@@ -301,9 +317,7 @@ bool Calc_First(int i)//返回empty_flag, i是产生式序号
                     for(int k = 0; k < temp.size(); k++)
                     {
                         if(!T_Exists(0, Cur_N, temp[k]) && temp[k] != 0)
-                        {
                             First[Cur_N].push_back(temp[k]);
-                        }
                     }
                 }
             }
@@ -410,9 +424,7 @@ void Calc_Follow()
                         for(int i = 0; i < temp_first.size(); i++)
                         {
                             if(!T_Exists(1, Cur_Node->no, temp_first[i]) && temp_first[i] != 0)
-                            {
                                 Cluster_All_Add(Cur_Node->no, temp_first[i]);
-                            }
                         }
 
                         temp_flag = N_empty[temp];
@@ -429,6 +441,95 @@ void Calc_Follow()
             Cur_Node = Cur_Node->next;
         }//end of Cur_Node
     }//end of for
+}
+
+void Generate_Analysis_Table()//生成分析表
+{
+    for(int i = 0; i <= N_num; i++)
+    {
+        for(int j = 0; j <= T_num; j++)
+        {
+            Analysis_Table[i][j] = -2;
+            //cout<<"!";
+        }
+    }
+    for(int i = 0; i < P_num; i++)
+    {
+        S_Pointer Cur_Node = Productions[i].first_symbol;
+        int Cur_Left = N_Str2Num[Productions[i].N_Left];
+        bool temp_flag = true;
+        while(Cur_Node && temp_flag)
+        {
+            if(Cur_Node->type)
+            {
+                for(int j = 0; j < First[Cur_Node->no].size(); j++)
+                {
+                    int Cur_T = First[Cur_Node->no][j];
+                    Analysis_Table[Cur_Left][Cur_T] = i;
+                }
+                temp_flag = N_empty[Cur_Node->no];
+            }
+            else
+            {
+                int Cur_T = Cur_Node->no;
+                Analysis_Table[Cur_Left][Cur_T] = i;
+                temp_flag = false;
+            }
+            Cur_Node = Cur_Node->next;
+        }
+
+        if(temp_flag)
+        {
+            for(int j = 0; j < Follow[Cur_Left].size(); j++)
+            {
+                int Cur_T = Follow[Cur_Left][j];
+                if(Cur_T == -1)
+                    Cur_T ++;
+                Analysis_Table[Cur_Left][Cur_T] = i;
+            }
+        }
+    }
+}
+
+void Print_Analysis_Table()
+{
+    for(int i = 0; i <= (N_num + 1)*2; i++)//i为行数
+    {
+        if(i%2 == 0)
+        {
+            for(int k = 0; k <= (T_num + 2)*12; k++)
+            {
+                cout<<"-";
+            }
+        }
+        else
+        {
+            cout<<setw(6)<<setfill(' ')<<left<<"|";
+            cout<<setw(6)<<setfill(' ')<<left<<N_Num2Str[i/2];
+            for(int j = 0; j <= T_num; j++)
+            {
+                if(i/2 == 0)
+                {
+                    int Cur_T;
+                    if(j == 0)
+                        Cur_T = -1;
+                    else
+                        Cur_T = j;
+                    cout<<setw(6)<<setfill(' ')<<left<<"|";
+                    cout<<setw(6)<<setfill(' ')<<left<<T_Num2Str[Cur_T];
+                }
+                else
+                {
+                    cout<<"|";
+                    Print_Production(Analysis_Table[i/2][j]);
+                }
+                
+            }
+            cout<<"|";
+        }
+        
+        cout<<endl;
+    }
 }
 
 int main()
@@ -457,6 +558,10 @@ int main()
         cout<<endl;
     }
     cout<<endl;
+
+    Generate_Analysis_Table();
+    Print_Analysis_Table();
+    //cout<<Analysis_Table[2][2]<<endl;
    /*
    First[0].push_back(4);
    First[0].push_back(6);
