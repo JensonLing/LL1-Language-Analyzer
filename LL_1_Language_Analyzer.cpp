@@ -16,7 +16,7 @@ using namespace std;
 int N_num = 0;  //非终结符数量
 int T_num = 0;  //终结符数量
 int P_num = 0; //产生式数量
-int C_num = 0; //具有相同Follow集的Cluster的数量
+//int C_num = 0; //具有相同Follow集的Cluster的数量
 map<int, string> T_Num2Str; //从非终结符编号到非终结符的映射
 map<string, int> T_Str2Num;
 map<int, string> N_Num2Str; //从终结符编号到终结符的映射
@@ -25,7 +25,7 @@ map<int,bool> N_empty;
 map<int, vector<int>> First;
 map<int, vector<int>> Follow;//从N到Follow集的映射
 map<int, vector<int>> Follow_Cluster;//Follow集中有相等关系的非终结符放在同一个Cluster里
-map<int, int> Get_Cluster_Num;//取得与该非终结符有相同Follow集的其他符号所在的Cluster号，若无则返回0
+//map<int, int> Get_Cluster_Num;//取得与该非终结符有相同Follow集的其他符号所在的Cluster号，若无则返回0
 
 typedef struct Symbol
 {
@@ -355,18 +355,9 @@ void Generate_Cluster()
 
                 if(ept_flag)//把该非终结符和产生式左侧的非终结符加到一个Cluster中
                 {
-                    if(Get_Cluster_Num[Cur_left] == 0)
-                    {
-                        C_num ++;
-                        Get_Cluster_Num[Cur_left] = C_num;
-                        Follow_Cluster[C_num].push_back(Cur_left);
-                    }
-                    int Cur_Cluster = Get_Cluster_Num[Cur_left];
+                    int Cur_Cluster = Cur_left;
                     if(!N_exists_in_Cluster(Cur_Node->no, Cur_Cluster))
-                    {
                         Follow_Cluster[Cur_Cluster].push_back(Cur_Node->no);
-                        Get_Cluster_Num[Cur_Node->no] = Cur_Cluster;
-                    }
                 }
             }
 
@@ -377,20 +368,17 @@ void Generate_Cluster()
 
 void Cluster_All_Add(int N, int key)
 {
-    if(Get_Cluster_Num[N])
+    if(!T_Exists(1, N, key))
+        Follow[N].push_back(key);
+    if(Follow_Cluster[N].size())
     {
-        vector<int> Cur_Cluster = Follow_Cluster[Get_Cluster_Num[N]];
+        vector<int> Cur_Cluster = Follow_Cluster[N];
         for(int i = 0; i < Cur_Cluster.size(); i++)
         {
             int Cur_N = Cur_Cluster[i];
             if(!T_Exists(1, Cur_N, key))
-                Follow[Cur_N].push_back(key);
+                Cluster_All_Add(Cur_N, key);
         }
-    }
-    else
-    {
-        if(!T_Exists(1, N, key))
-            Follow[N].push_back(key);
     }
 }
 
@@ -457,8 +445,8 @@ int main()
     Calc_Follow();
     Print_First_And_Follow();
 
-    cout<<"Cluster_Num:"<<C_num<<endl;
-    for(int i = 1; i <= C_num; i++)
+    //cout<<"Cluster_Num:"<<C_num<<endl;
+    for(int i = 1; i <= N_num; i++)
     {
         vector<int> Cur_Vec = Follow_Cluster[i];
         cout<<"Cluster "<<i<<": ";
