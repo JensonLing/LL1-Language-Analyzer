@@ -5,10 +5,10 @@
 # include <string>
 # include <fstream>
 # include <vector>
+# include <stack>
 
 # define PRODUCTION_PATH "./doc/production.txt"
-//# define TOKEN_TABLE_PATH "./doc/tokens.txt"
-//# define TOKEN_MAP_PATH "./doc/token_map.txt"
+# define SENTENCE_INPUT "./doc/sentence_input.txt"
 
 //# define EOF 0
 # define MAX_TABLE_SIZE 100
@@ -23,12 +23,14 @@ map<int, string> T_Num2Str; //从非终结符编号到非终结符的映射
 map<string, int> T_Str2Num;
 map<int, string> N_Num2Str; //从终结符编号到终结符的映射
 map<string, int> N_Str2Num;
-map<int,bool> N_empty;
-map<int, vector<int>> First;
+map<int,bool> N_empty;//用以判断某一非终结符能否推空
+map<int, vector<int>> First;//从N到First集的映射
 map<int, vector<int>> Follow;//从N到Follow集的映射
 map<int, vector<int>> Follow_Cluster;//Follow集中有相等关系的非终结符放在同一个Cluster里
+stack<int> Analysis_Stack;//分析栈
+stack<char> Input_Stack;//输入语句栈
 //map<int, int> Get_Cluster_Num;//取得与该非终结符有相同Follow集的其他符号所在的Cluster号，若无则返回0
-int Analysis_Table[MAX_TABLE_SIZE][MAX_TABLE_SIZE];
+int Analysis_Table[MAX_TABLE_SIZE][MAX_TABLE_SIZE];//预测分析表
 
 typedef struct Symbol
 {
@@ -185,6 +187,22 @@ void Load_Production()
 
     T_Num2Str[0] = "ε";
     T_Str2Num["ε"] = 0;
+}
+
+void Load_Input_Sentence()
+{
+    fstream t(SENTENCE_INPUT, ios::in);
+    char temp[1024];
+    string s;
+    t.getline(temp, 1024);
+    s = temp;
+    for(int i = s.length() - 1; i >= 0; i--)
+    {
+        Input_Stack.push(s[i]);
+        //cout<<"pushed:"<<s[i];
+    }
+
+    t.close();
 }
 
 void Print_Production(int n)
@@ -491,7 +509,7 @@ void Generate_Analysis_Table()//生成分析表
     }
 }
 
-void Print_Analysis_Table()
+void Print_Analysis_Table()//打印分析表
 {
     for(int i = 0; i <= (N_num + 1)*2; i++)//i为行数
     {
@@ -532,6 +550,234 @@ void Print_Analysis_Table()
     }
 }
 
+void Print_Input_Stack()
+{
+    stack<char> temp = Input_Stack;
+    string s;
+    while(!temp.empty())
+    {
+        s += temp.top();
+        temp.pop();
+    }
+    s += '$';
+    cout<<setw(21)<<setfill(' ')<<right<<s;
+}
+
+void Print_Analysis_Stack()
+{
+    stack<int> temp = Analysis_Stack;
+    string s;
+    while(!temp.empty())
+    {
+        if(temp.top() <= N_num)
+            s += N_Num2Str[temp.top()];
+        else
+            s += T_Num2Str[temp.top() - N_num];
+        temp.pop();
+    }
+    s += '$';
+    cout<<setw(21)<<setfill(' ')<<right<<s;
+}
+
+void Init_Analysis_Stack()
+{
+    Analysis_Stack.push(1);
+}
+
+void Update_Analysis_Stack(int i)
+{
+    //int Cur_N = Analysis_Stack.top();
+    Analysis_Stack.pop();
+
+    stack<int> assist;
+    S_Pointer Cur_Node = Productions[i].first_symbol;
+    while(Cur_Node)
+    {
+        if(Cur_Node->type)
+            assist.push(Cur_Node->no);
+        else
+            assist.push(Cur_Node->no + N_num);
+        
+        Cur_Node = Cur_Node->next;
+    }
+
+    while(!assist.empty())
+    {
+        Analysis_Stack.push(assist.top());
+        assist.pop();
+    }
+    cout<<setw(10)<<setfill(' ')<<left<<" ";
+    Print_Production(i);
+
+}
+
+void Start_Analysis(int step)
+{
+    for(int i = 0; i < 12 + 22*3 + 1; i++)
+        cout<<"-";
+    cout<<endl;
+
+    if(step == 0)
+    {
+        cout<<setw(5)<<setfill(' ')<<left<<"|";
+        cout<<setw(7)<<setfill(' ')<<left<<"STEP";
+        cout<<setw(9)<<setfill(' ')<<left<<"|";
+        cout<<setw(13)<<setfill(' ')<<left<<"STACK";
+        cout<<setw(9)<<setfill(' ')<<left<<"|";
+        cout<<setw(13)<<setfill(' ')<<left<<"INPUT";
+        cout<<setw(9)<<setfill(' ')<<left<<"|";
+        cout<<setw(13)<<setfill(' ')<<left<<"OUTPUT";
+        cout<<"|"<<endl;
+        Start_Analysis(1);
+    }
+    else
+    {
+        cout<<setw(6)<<setfill(' ')<<left<<"|";
+        cout<<setw(6)<<setfill(' ')<<left<<step;
+
+        cout<<"|";
+        Print_Analysis_Stack();
+
+        cout<<"|";
+        Print_Input_Stack();
+
+        cout<<"|";
+        if(Input_Stack.empty() && Analysis_Stack.empty())
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"Accepted";
+            cout<<"|"<<endl;
+        }
+        else if(Analysis_Stack.empty() && (!Input_Stack.empty()))
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+            cout<<"|"<<endl;
+        }
+        else if(Analysis_Stack.top() > N_num && Input_Stack.empty())
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+            cout<<"|"<<endl;
+        }
+        else if(Analysis_Stack.top() > N_num && T_Num2Str[Analysis_Stack.top() - N_num][0] == Input_Stack.top())
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"Matched";
+            cout<<"|"<<endl;
+            Analysis_Stack.pop();
+            Input_Stack.pop();
+            Start_Analysis(step + 1);
+        }
+        else if(Analysis_Stack.top() > N_num && T_Num2Str[Analysis_Stack.top() - N_num] == "i" && (Input_Stack.top()>='a' && Input_Stack.top()<='z'))
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"Matched";
+            cout<<"|"<<endl;
+            Analysis_Stack.pop();
+            Input_Stack.pop();
+            Start_Analysis(step + 1);
+        }
+        else if(Analysis_Stack.top() > N_num && T_Num2Str[Analysis_Stack.top() - N_num] == "n" && (Input_Stack.top()>='0' && Input_Stack.top()<='9'))
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"Matched";
+            cout<<"|"<<endl;
+            Analysis_Stack.pop();
+            Input_Stack.pop();
+            Start_Analysis(step + 1);
+        }
+        else if(Analysis_Stack.top() > N_num)//终结符不匹配
+        {
+            cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+            cout<<"|"<<endl;
+        }
+        else if(Analysis_Stack.top() <= N_num && Input_Stack.empty())
+        {
+            if(Analysis_Table[Analysis_Stack.top()][0] >= 0)
+            {
+                Update_Analysis_Stack(Analysis_Table[Analysis_Stack.top()][0]);
+                cout<<"|"<<endl;
+                Start_Analysis(step + 1);
+            }
+            else if(Analysis_Table[Analysis_Stack.top()][0] == -1)
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"Redundant";
+                cout<<"|"<<endl;
+                Analysis_Stack.pop();
+                Start_Analysis(step + 1);
+            }
+            else
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<"|"<<endl;
+            }
+            
+        }
+        else if(Analysis_Stack.top() <= N_num && (Input_Stack.top()>='0' && Input_Stack.top()<='9'))
+        {
+            if(Analysis_Table[Analysis_Stack.top()][T_Str2Num["n"]] >= 0)
+            {
+                Update_Analysis_Stack(Analysis_Table[Analysis_Stack.top()][T_Str2Num["n"]]);
+                cout<<"|"<<endl;
+                Start_Analysis(step + 1);
+            }
+            else if(Analysis_Table[Analysis_Stack.top()][T_Str2Num["n"]] == -1)
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"Redundant";
+                cout<<"|"<<endl;
+                Analysis_Stack.pop();
+                Start_Analysis(step + 1);
+            }
+            else
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<"|"<<endl;
+            }
+        }
+        else if(Analysis_Stack.top() <= N_num && (Input_Stack.top()>='a' && Input_Stack.top()<='z') && T_Str2Num["" + Input_Stack.top()] == 0)
+        {
+            if(Analysis_Table[Analysis_Stack.top()][T_Str2Num["i"]] >= 0)
+            {
+                Update_Analysis_Stack(Analysis_Table[Analysis_Stack.top()][T_Str2Num["i"]]);
+                cout<<"|"<<endl;
+                Start_Analysis(step + 1);
+            }
+            else if(Analysis_Table[Analysis_Stack.top()][T_Str2Num["i"]] == -1)
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"Redundant";
+                cout<<"|"<<endl;
+                Analysis_Stack.pop();
+                Start_Analysis(step + 1);
+            }
+            else
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<"|"<<endl;
+            }
+        }
+        else
+        {
+            string s;
+            s += Input_Stack.top();
+            if(Analysis_Table[Analysis_Stack.top()][T_Str2Num[s]] >= 0)
+            {
+                Update_Analysis_Stack(Analysis_Table[Analysis_Stack.top()][T_Str2Num[s]]);
+                cout<<"|"<<endl;
+                Start_Analysis(step + 1);
+            }
+            else if(Analysis_Table[Analysis_Stack.top()][T_Str2Num[s]] == -1)
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"Redundant";
+                cout<<"|"<<endl;
+                Analysis_Stack.pop();
+                Start_Analysis(step + 1);
+            }
+            else
+            {
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<"|"<<endl;
+            }
+        }
+
+    }
+    
+}
+
 int main()
 {
     
@@ -561,6 +807,12 @@ int main()
 
     Generate_Analysis_Table();
     Print_Analysis_Table();
+    cout<<endl;
+
+    Load_Input_Sentence();
+    Init_Analysis_Stack();
+    Start_Analysis(0);
+    //Print_Input_Stack();
     //cout<<Analysis_Table[2][2]<<endl;
    /*
    First[0].push_back(4);
