@@ -108,7 +108,7 @@ void Load_Production()
             N[j] = temp[j];
         
         string N_Symbol = N;
-        cout<<"N_left is:"<<N_Symbol<<endl;
+        //cout<<"N_left is:"<<N_Symbol<<endl;
         if(N_Str2Num[N_Symbol])
         {
             Productions[P_num].N_Left = N_Symbol;
@@ -135,7 +135,7 @@ void Load_Production()
         //cout<<"read:"<<t<<endl;
         int i = 0;
         while(temp[i] != '>') i++;
-        cout<<"i:"<<i<<endl;
+        //cout<<"i:"<<i<<endl;
         i++;    //=产生式右边的第一个符号
         if(temp[i] == 0)
         {
@@ -156,7 +156,7 @@ void Load_Production()
                 //Cur_Node ->next = NULL;
                 Last_Node->next = Cur_Node;
                 string Cur_Symbol = Get_First_Symbol(temp + i);
-                cout<<"Cur_Symbol is:"<< Cur_Symbol<<endl;
+                //cout<<"Cur_Symbol is:"<< Cur_Symbol<<endl;
                 if(N_Str2Num[Cur_Symbol])
                 {
                     Cur_Node->no = N_Str2Num[Cur_Symbol];
@@ -790,7 +790,99 @@ void Start_Analysis(int step)
 
 }
 
+void Eliminate_Left_Recur()
+{
+    int times = N_num;
+    int P = P_num;
+    for(int i = 1; i <= times; i++)//对每个原先的非终结符都进行一次扫描
+    {
+        int recur[100] = {0};
+        int none_recur[100] = {0};
+        string Cur_N = N_Num2Str[i];
+        for(int j = 0; j < P; j++)
+        {
+            if(Cur_N == Productions[j].N_Left)
+            {
+                if(Productions[j].first_symbol && Productions[j].first_symbol ->type && Productions[j].first_symbol->no == i)
+                {
+                    recur[0]++;
+                    recur[recur[0]] = j;
+                }
+                else
+                {
+                    none_recur[0]++;
+                    none_recur[none_recur[0]] = j;
+                }
+                
+            }
+        }
 
+        if(recur[0])//存在左递归
+        {
+            string New_N = Cur_N + "'";
+            N_num ++;
+            N_Num2Str[N_num] = New_N;
+            N_Str2Num[New_N] = N_num;
+
+            for(int j = 1; j <= none_recur[0]; j++)
+            {
+                S_Pointer Cur_Node = Productions[none_recur[j]].first_symbol;
+                if(Cur_Node == NULL)
+                {
+                    S_Pointer New_Node = (S_Pointer)malloc(sizeof(Symbol));
+                    Init_S(New_Node);
+                    New_Node->type = 1;
+                    New_Node->no = N_Str2Num[New_N];
+                    Productions[none_recur[j]].first_symbol = New_Node;
+                }
+                else
+                {
+                    while (Cur_Node->next)
+                        Cur_Node = Cur_Node->next;
+                    S_Pointer New_Node = (S_Pointer)malloc(sizeof(Symbol));
+                    Init_S(New_Node);
+                    New_Node->type = 1;
+                    New_Node->no = N_Str2Num[New_N];
+                    Cur_Node->next = New_Node;
+                    
+                }
+                
+            }
+
+            for(int j = 1; j <= recur[0]; j++)
+            {
+                Productions[recur[j]].N_Left = New_N;
+                Productions[recur[j]].first_symbol = Productions[recur[j]].first_symbol->next;
+                S_Pointer Cur_Node = Productions[recur[j]].first_symbol;
+                if(Cur_Node == NULL)
+                {
+                    S_Pointer New_Node = (S_Pointer)malloc(sizeof(Symbol));
+                    Init_S(New_Node);
+                    New_Node->type = 1;
+                    New_Node->no = N_Str2Num[New_N];
+                    Productions[recur[j]].first_symbol = New_Node;
+                }
+                else
+                {
+                    while (Cur_Node->next)
+                        Cur_Node = Cur_Node->next;
+                    S_Pointer New_Node = (S_Pointer)malloc(sizeof(Symbol));
+                    Init_S(New_Node);
+                    New_Node->type = 1;
+                    New_Node->no = N_Str2Num[New_N];
+                    Cur_Node->next = New_Node;
+                    
+                }
+            }
+
+            Productions[P_num].N_Left = New_N;
+            Productions[P_num].first_symbol = NULL;
+            N_empty[N_Str2Num[New_N]] = 1;
+            P_num++;
+
+        }
+    }
+}
 
 int main()
 {
@@ -798,6 +890,10 @@ int main()
     Load_Production();
     //cout<<"Load OK"<<endl;
     //Print_Production(0);
+    Print_Statistics();
+    cout<<"--------------------"<<endl;
+
+    Eliminate_Left_Recur();
     Print_Statistics();
     //cout<< N_empty[N_Str2Num["A"]];
     for(int i = 0; i < P_num; i++)
