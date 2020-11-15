@@ -884,6 +884,84 @@ void Eliminate_Left_Recur()
     }
 }
 
+void Eliminate_Common_Left()//消除公共左因子
+{
+    int times = P_num;
+    for(int i = 0; i < times; i++)
+    {
+        string Cur_N = Productions[i].N_Left;
+        if(Productions[i].first_symbol && Productions[i].first_symbol->type)
+        {
+            int Cur_Cand = Productions[i].first_symbol->no;
+            bool rep = false;
+            bool temp_empty = false;
+            for(int j = 0; j < times ; j++)
+            {
+                if(j != i && Productions[j].N_Left == Productions[i].N_Left && Productions[j].first_symbol && Productions[j].first_symbol->type && Productions[j].first_symbol->no == Cur_Cand)
+                {
+                    bool judge_em = true;
+                    rep = true;
+                    string New_N = Productions[i].N_Left + "'";
+                    Productions[j].N_Left = New_N;
+                    Productions[j].first_symbol = Productions[j].first_symbol->next;
+                    //判空
+                    S_Pointer Cur_Node = Productions[j].first_symbol;
+                    while(Cur_Node)
+                    {
+                        if(Cur_Node->type)
+                        {
+                            judge_em &= N_empty[Cur_Node->no];
+                        }
+                        else
+                            judge_em = false;
+                        Cur_Node = Cur_Node->next;
+                    }
+                    temp_empty |= judge_em;
+                }
+            }
+            if(rep)
+            {
+                string New_N = Productions[i].N_Left + "'";
+                if(N_Str2Num[New_N] == 0)
+                {
+                    N_num ++;
+                    N_Num2Str[N_num] = New_N;
+                    N_Str2Num[New_N] = N_num;
+                }
+                Productions[i].N_Left = New_N;
+                Productions[i].first_symbol = Productions[i].first_symbol->next;
+                //判空
+                bool judge_em = true;
+                S_Pointer Cur_Node = Productions[i].first_symbol;
+                while(Cur_Node)
+                {
+                    if(Cur_Node->type)
+                    {
+                        judge_em &= N_empty[Cur_Node->no];
+                    }
+                    else
+                        judge_em = false;
+                    Cur_Node = Cur_Node->next;
+                }
+                temp_empty |= judge_em;
+
+                Productions[P_num].N_Left = Cur_N;
+                S_Pointer New_Node = (S_Pointer)malloc(sizeof(Symbol));
+                Init_S(New_Node);
+                New_Node->type = 1;
+                New_Node->no = Cur_Cand;
+                New_Node->next = (S_Pointer)malloc(sizeof(Symbol));
+                New_Node->next->no =  N_Str2Num[New_N];
+                New_Node->next->type = 1;
+                New_Node->next->next = NULL;
+                Productions[P_num].first_symbol = New_Node;
+                P_num++;
+                N_empty[N_Str2Num[New_N]] |= temp_empty;
+            }
+        }
+    }
+}
+
 int main()
 {
     
@@ -894,6 +972,7 @@ int main()
     cout<<"--------------------"<<endl;
 
     Eliminate_Left_Recur();
+    Eliminate_Common_Left();
     Print_Statistics();
     //cout<< N_empty[N_Str2Num["A"]];
     for(int i = 0; i < P_num; i++)

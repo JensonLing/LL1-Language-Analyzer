@@ -3,5 +3,5 @@ E->B
 A->n
 A->i
 B->(L)
-L->LE
+L->E,L
 L->E
