@@ -1,8 +1,6 @@
-E->A
-E->B
-A->n
-A->i
-B->(L)
-L->EL'
-L'->,L
-L'->
+d->tv
+t->n
+t->f
+v->ir
+r->,v
+r->

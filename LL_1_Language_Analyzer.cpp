@@ -9,8 +9,6 @@
 
 # define PRODUCTION_PATH "./doc/production.txt"
 # define SENTENCE_INPUT "./doc/sentence_input.txt"
-
-//# define EOF 0
 # define MAX_TABLE_SIZE 100
 
 using namespace std;
@@ -613,6 +611,9 @@ void Update_Analysis_Stack(int i)
 
 void Start_Analysis(int step)
 {
+    /*
+    if(step == 14)
+        cout<<"entered"<<endl;*/
     for(int i = 0; i < 12 + 22*3 + 1; i++)
         cout<<"-";
     cout<<endl;
@@ -629,9 +630,18 @@ void Start_Analysis(int step)
         cout<<setw(13)<<setfill(' ')<<left<<"OUTPUT";
         cout<<"|"<<endl;
         Start_Analysis(1);
+
+        for(int i = 0; i < 12 + 22*3 + 1; i++)
+        cout<<"-";
+        cout<<endl;
     }
     else
     {
+        char Cur_IN_Top[10] = {0};
+
+        if(!Input_Stack.empty())
+            Cur_IN_Top[0] = Input_Stack.top();
+        
         cout<<setw(6)<<setfill(' ')<<left<<"|";
         cout<<setw(6)<<setfill(' ')<<left<<step;
 
@@ -649,17 +659,17 @@ void Start_Analysis(int step)
         }
         else if(Analysis_Stack.empty() && (!Input_Stack.empty()))
         {
-            cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+            cout<<setw(21)<<setfill(' ')<<right<<"ERROR1";
             cout<<"|"<<endl;
         }
         else if(Analysis_Stack.top() > N_num && Input_Stack.empty())
         {
-            cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+            cout<<setw(21)<<setfill(' ')<<right<<"ERROR2";
             cout<<"|"<<endl;
         }
         else if(Analysis_Stack.top() > N_num && T_Num2Str[Analysis_Stack.top() - N_num][0] == Input_Stack.top())
         {
-            cout<<setw(21)<<setfill(' ')<<right<<"Matched";
+            cout<<setw(21)<<setfill(' ')<<right<<"Matched1";
             cout<<"|"<<endl;
             Analysis_Stack.pop();
             Input_Stack.pop();
@@ -667,15 +677,16 @@ void Start_Analysis(int step)
         }
         else if(Analysis_Stack.top() > N_num && T_Num2Str[Analysis_Stack.top() - N_num] == "i" && (Input_Stack.top()>='a' && Input_Stack.top()<='z'))
         {
-            cout<<setw(21)<<setfill(' ')<<right<<"Matched";
+            cout<<setw(21)<<setfill(' ')<<right<<"Matched2";
             cout<<"|"<<endl;
             Analysis_Stack.pop();
             Input_Stack.pop();
+            //cout<<"popped"<<endl;
             Start_Analysis(step + 1);
         }
         else if(Analysis_Stack.top() > N_num && T_Num2Str[Analysis_Stack.top() - N_num] == "n" && (Input_Stack.top()>='0' && Input_Stack.top()<='9'))
         {
-            cout<<setw(21)<<setfill(' ')<<right<<"Matched";
+            cout<<setw(21)<<setfill(' ')<<right<<"Matched3";
             cout<<"|"<<endl;
             Analysis_Stack.pop();
             Input_Stack.pop();
@@ -683,7 +694,7 @@ void Start_Analysis(int step)
         }
         else if(Analysis_Stack.top() > N_num)//终结符不匹配
         {
-            cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+            cout<<setw(21)<<setfill(' ')<<right<<"ERROR3";
             cout<<"|"<<endl;
         }
         else if(Analysis_Stack.top() <= N_num && Input_Stack.empty())
@@ -703,7 +714,7 @@ void Start_Analysis(int step)
             }
             else
             {
-                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR4";
                 cout<<"|"<<endl;
             }
             
@@ -725,11 +736,11 @@ void Start_Analysis(int step)
             }
             else
             {
-                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR5";
                 cout<<"|"<<endl;
             }
         }
-        else if(Analysis_Stack.top() <= N_num && (Input_Stack.top()>='a' && Input_Stack.top()<='z') && T_Str2Num["" + Input_Stack.top()] == 0)
+        else if(Analysis_Stack.top() <= N_num && (Input_Stack.top()>='a' && Input_Stack.top()<='z') && T_Str2Num[Cur_IN_Top] == 0)
         {
             if(Analysis_Table[Analysis_Stack.top()][T_Str2Num["i"]] >= 0)
             {
@@ -746,8 +757,9 @@ void Start_Analysis(int step)
             }
             else
             {
-                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR6";
                 cout<<"|"<<endl;
+                //cout<<Input_Stack.top()<<endl;
             }
         }
         else
@@ -769,20 +781,22 @@ void Start_Analysis(int step)
             }
             else
             {
-                cout<<setw(21)<<setfill(' ')<<right<<"ERROR";
+                cout<<setw(21)<<setfill(' ')<<right<<"ERROR7";
                 cout<<"|"<<endl;
             }
         }
 
     }
-    
+
 }
+
+
 
 int main()
 {
     
     Load_Production();
-    cout<<"Load OK"<<endl;
+    //cout<<"Load OK"<<endl;
     //Print_Production(0);
     Print_Statistics();
     //cout<< N_empty[N_Str2Num["A"]];
@@ -793,6 +807,7 @@ int main()
     Print_First_And_Follow();
 
     //cout<<"Cluster_Num:"<<C_num<<endl;
+    /*
     for(int i = 1; i <= N_num; i++)
     {
         vector<int> Cur_Vec = Follow_Cluster[i];
@@ -802,7 +817,7 @@ int main()
             cout<<Cur_Vec[j]<<" ";
         }
         cout<<endl;
-    }
+    }*/
     cout<<endl;
 
     Generate_Analysis_Table();
